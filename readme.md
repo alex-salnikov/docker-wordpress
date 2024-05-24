@@ -17,7 +17,49 @@ docker-compose --env-file my.env up -d      # specify alternative .env file
 docker-compose ps                           # check running containers
 docker-compose pull                         # pull updated versions from dockerhub
 docker-compose down                         # stop
+docker-compose logs -f                      # logs
 ```
+
+
+# MySQL
+
+## Healthcheck
+Implement a "healthcheck", so that dependent containers wait for DB-container to become ready, example:
+```yml
+  db:
+    healthcheck:
+      #test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      #test: ["CMD", 'mysqladmin', 'ping', '-h', 'db', '-u', 'root', '-p$$MYSQL_ROOT_PASSWORD' ]
+      test: ["CMD-SHELL", 'mysqladmin ping -h db -u root -p$$MYSQL_ROOT_PASSWORD || exit 1' ]
+
+  wp:
+    depends_on:
+      db:
+        condition: service_healthy
+```
+
+Use following command to see healthcheck results:
+```sh
+docker inspect --format "{{json .State.Health }}" $(docker-compose ps -q db) | jq
+# {
+#   "Status": "healthy",
+#   "FailingStreak": 0,
+#   "Log": [
+#     {
+#       "Start": ..
+#       "End": ..
+#       "ExitCode": 0,
+#       "Output": "mysqladmin: [Warning] Using a password on the command line interface can be insecure.\nmysqld is alive\n"
+#     },
+```
+
+References
+- https://github.com/compose-spec/compose-spec/blob/master/spec.md#healthcheck
+- https://github.com/compose-spec/compose-spec/blob/master/spec.md#long-syntax-1
+- https://stackoverflow.com/questions/42567475/docker-compose-check-if-mysql-connection-is-ready
+- https://docs.docker.com/compose/compose-file/05-services/#healthcheck
+- https://stackoverflow.com/questions/70263411/docker-compose-how-to-wait-for-a-file-to-appear-or-a-folder-to-appear-before-a
+- https://stackoverflow.com/questions/42737957/how-to-view-docker-compose-healthcheck-logs
 
 
 # PHPMyAdmin
@@ -29,7 +71,9 @@ Error
 > mysqli::real_connect(): (HY000/2002): Connection refused
 > mysqli::real_connect(): php_network_getaddresses: getaddrinfo failed: Name or service not known
 
-It might take some time (couple of minutes) for the DB to start. You can try to ping DB-container from inside PMA-container:
+Implement [healthcheck](#healthcheck), because takes some time (about a minute) for the DB to start.
+
+You can try to ping DB-container from inside PMA-container:
 ```sh
 docker-compose ps                       # get name of PMA-container, e.g. 'wordpress_pma'
 docker exec -it wordpress_pma bash      # start terminal-session from inside PMA-container
@@ -41,8 +85,7 @@ ping db                                     # try to ping DB-container
 
 
 # TODO
-- Implement "healthcheck" to wait for DB-container to become ready, see references:
-  - reference: https://stackoverflow.com/questions/70263411/docker-compose-how-to-wait-for-a-file-to-appear-or-a-folder-to-appear-before-a
+- [x] Implement "healthcheck" to wait for DB-container to become ready (see [healthcheck](#healthcheck))
 - check that **mariadb** container is working
 
 
