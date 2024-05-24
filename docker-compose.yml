@@ -1,0 +1,123 @@
+version: '3'
+services:
+
+
+## MySQL Service
+  db:
+    image: mysql:8.0
+    restart: always
+    command: '--default-authentication-plugin=mysql_native_password'
+#    ports:
+#      - 3306:3306 # change ip if required
+#    networks:
+#      - backend
+#    volumes:
+#      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_USER: "${DB_USER}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+#      MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
+#    mem_limit: 256m  # Begrenzt den Speicher auf 512 MB
+#    cpus: 0.5        # Begrenzt auf 50% einer CPU-Einheit
+
+
+## MariaDB
+#  db:
+#    image: mariadb:latest # https://hub.docker.com/_/mysql/ - or mariadb https://hub.docker.com/_/mariadb
+##    ports:
+##      - 127.0.0.1:8086:3306 # change ip if required
+##      - 3306:3306 # change ip if required
+#    command: [
+#        '--default_authentication_plugin=mysql_native_password',
+#        '--character-set-server=utf8mb4',
+#        '--collation-server=utf8mb4_unicode_ci'
+#    ]
+#    volumes:
+#      - ./wp-data:/docker-entrypoint-initdb.d
+#      - db_data:/var/lib/mysql
+#    environment:
+#      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+
+
+## Wordpress
+  wp:
+    image: wordpress:latest # https://hub.docker.com/_/wordpress/
+    restart: always
+    ports:
+#      - 127.0.0.1:8080:80 # change ip if required
+      - 8080:80
+    volumes:
+      - ./wp-app:/var/www/html # Full wordpress project
+#      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
+      #- ./plugin-name/trunk/:/var/www/html/wp-content/plugins/plugin-name  # Plugin development
+      #- ./theme-name/trunk/:/var/www/html/wp-content/themes/theme-name     # Theme development
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: "${DB_NAME}"
+      WORDPRESS_DB_USER: "${DB_USER}"
+      WORDPRESS_DB_PASSWORD: "${DB_PASSWORD}"
+      WORDPRESS_CONFIG_EXTRA: |           # https://developer.wordpress.org/advanced-administration/wordpress/wp-config/#wp-siteurl
+        define('WP_HOME','${WP_HOME}');
+        define('WP_SITEURL','${WP_HOME}');
+    depends_on:
+      - db
+    links:
+      - db:db
+
+
+## Wordpress CLI
+#  wpcli:
+#    image: wordpress:cli
+#    volumes:
+#      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
+#      - ./wp-app:/var/www/html
+#    environment:
+#      WORDPRESS_DB_HOST: db
+#      WORDPRESS_DB_NAME: "${DB_NAME}"
+#      WORDPRESS_DB_USER: "${DB_USER}"
+#      WORDPRESS_DB_PASSWORD: "${DB_PASSWORD}"
+#    depends_on:
+#      - db
+#      - wp
+
+
+## PHPMyAdmin
+  pma:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    environment:
+      # https://docs.phpmyadmin.net/en/latest/setup.html#docker-environment-variables
+      PMA_HOST: db:3306     # DB-host + port within contianer-network
+#      PMA_PORT: 3306       # optional, can also be set via PMA_HOST
+#      PMA_ARBITRARY: 1     # lets you specify other db-host during login
+#      PMA_USER: admin
+#      PMA_PASSWORD: admin
+      MYSQL_USERNAME: root
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      UPLOAD_LIMIT: 100M
+    ports:
+#      - 127.0.0.1:8082:80
+      - 8082:80
+#    networks:
+#      - backend
+    depends_on:
+      - db
+    links:
+      - db:db
+
+
+volumes:
+  db_data:
+
+#networks:
+#  backend:
+
+
+# https://wordpress.org/support/topic/wordpress-site-with-docker-behind-apache-reverse-proxy-keeps-redirecting-from-do/
+
+
+# docker exec -it wordpress_pma bash
+# apt update && apt install -y iputils-ping
+# ping db
